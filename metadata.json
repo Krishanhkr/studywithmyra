@@ -1,0 +1,12 @@
+{
+  "name": "Myra Assistant",
+  "description": "An intelligent Hinglish voice-based AI study tutor that explains academic topics and units you paste, in an engaging and playful way.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "Text Topic Analysis",
+    "Voice Conversation",
+    "Interactive Study Tutor"
+  ]
+}
