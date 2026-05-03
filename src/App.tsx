@@ -222,28 +222,38 @@ export default function App() {
       setError(null);
       setLastMyraResponse("");
       
-      // Step 1: Identify sub-topics (Fast)
-      setProcessingStatus("Identifying sub-topics in your unit... 🔍");
-      const discoveryPrompt = `Maine ye unit content diya hai. Ismein se saare main topics aur sub-topics ki list nikalo heading format mein. Explain mat karna abhi, bas list chahiye.
-      
-      UNIT CONTENT:
-      ${topicContent}`;
-      
-      const topicList = await chatWithMyra([], discoveryPrompt);
-      
-      // Step 2: Detailed Explanation for ALL topics
-      setProcessingStatus("Topics mil gaye! Ab in sabko detail mein samjhati hu... 📖");
-      
-      const explanationPrompt = `Awesome! Maine ye topics identify kiye hain: 
-      ${topicList}
-      
-      Ab in saare topics ko ek-ek karke DETAIL mein samjhao properly (Hinglish mein). 
-      - Har ek topic ke liye kam se kam 4-5 lines honi chahiye.
-      - "Hadoop", "Medicine", "Trading" - jo bhi text mein hai sab explain karo.
-      - Playful aur friendly tutor (Myra) ki tarah baat karo.
-      - Start with a cool intro like "Chalo, let's dive into these topics! 😏"`;
+      // Add a 3-minute timeout for the entire sequence to handle slow network/large units
+      const globalTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Analysis took too long. Try smaller text or check your connection? 😏")), 180000)
+      );
 
-      const responseText = await processStudyMaterial(topicContent, explanationPrompt);
+      const runAnalysis = async () => {
+        // Step 1: Identify sub-topics (Fast)
+        setProcessingStatus("Identifying sub-topics in your unit... 🔍");
+        const discoveryPrompt = `Maine ye unit content diya hai. Ismein se saare main topics aur sub-topics ki list nikalo heading format mein. Explain mat karna abhi, bas list chahiye.
+        
+        UNIT CONTENT:
+        ${topicContent}`;
+        
+        const topicList = await chatWithMyra([], discoveryPrompt);
+        
+        // Step 2: Detailed Explanation for ALL topics
+        setProcessingStatus("Topics mil gaye! Ab in sabko detail mein samjhati hu... 📖");
+        
+        const explanationPrompt = `Awesome! Maine ye topics identify kiye hain: 
+        ${topicList}
+        
+        Ab in saare topics ko ek-ek karke DETAIL mein samjhao properly (Hinglish mein). 
+        - Har ek topic ke liye kam se kam 4-5 lines honi chahiye.
+        - "Hadoop", "Medicine", "Trading" - jo bhi text mein hai sab explain karo.
+        - Playful aur friendly tutor (Myra) ki tarah baat karo.
+        - Start with a cool intro like "Chalo, let's dive into these topics! 😏"`;
+
+        const responseText = await processStudyMaterial(topicContent, explanationPrompt);
+        return { topicList, responseText, explanationPrompt };
+      };
+
+      const { responseText, explanationPrompt } = await Promise.race([runAnalysis(), globalTimeout]) as { responseText: string, explanationPrompt: string };
       
       const itemId = Date.now().toString();
       const newHistoryItem: HistoryItem = {
@@ -499,8 +509,21 @@ export default function App() {
               </motion.div>
 
               {isProcessing && (
-                <div className="mt-20">
+                <div className="mt-20 flex flex-col items-center gap-6">
                   <AtomLoader text={`${processingStatus} (${processingTime}s)`} />
+                  <motion.button
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      setIsProcessing(false);
+                      setError("Analysis was cancelled by you. Try again with a smaller section? 😏");
+                    }}
+                    className="text-[10px] bg-white/5 hover:bg-red-500/10 text-white/30 hover:text-red-400 border border-white/10 hover:border-red-500/20 px-4 py-2 rounded-full uppercase tracking-widest transition-all"
+                  >
+                    Cancel Analysis
+                  </motion.button>
                 </div>
               )}
               
