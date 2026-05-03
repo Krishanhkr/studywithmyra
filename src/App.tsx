@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mic, MicOff, MessageSquare, RotateCcw, Volume2, VolumeX, Info, Send, FileText, BookOpen, History, PlayCircle, StopCircle, Waves } from 'lucide-react';
+import { Mic, MicOff, MessageSquare, RotateCcw, Volume2, VolumeX, Info, Send, FileText, BookOpen, History, PlayCircle, StopCircle, Waves, Trash2 } from 'lucide-react';
 import { VoiceWaveform } from './components/VoiceWaveform';
 import { chatWithMyra, processStudyMaterial, generateSpeech, ChatMessage } from './services/geminiService';
 import { VoiceService } from './services/voiceService';
@@ -18,6 +18,49 @@ interface HistoryItem {
   audioData?: string;
 }
 
+const AtomLoader = ({ text }: { text: string }) => (
+  <motion.div 
+    initial={{ opacity: 0, scale: 0.9 }}
+    animate={{ opacity: 1, scale: 1 }}
+    className="flex flex-col items-center justify-center gap-12"
+  >
+    <div className="relative w-32 h-32 flex items-center justify-center">
+      <div className="absolute inset-0 bg-orange-500/5 blur-[40px] rounded-full animate-pulse" />
+      
+      {/* Nucleus */}
+      <motion.div 
+        animate={{ scale: [1, 1.2, 1] }}
+        transition={{ duration: 2, repeat: Infinity }}
+        className="w-5 h-5 bg-orange-500 rounded-full shadow-[0_0_30px_rgba(249,115,22,0.8)] z-10"
+      />
+      
+      {/* Orbits */}
+      {[0, 60, 120].map((rotation, i) => (
+        <motion.div
+          key={i}
+          className="absolute w-full h-[40%] border border-orange-500/20 rounded-[100%]"
+          style={{ rotate: rotation }}
+          animate={{ rotate: rotation + 360 }}
+          transition={{ duration: 3 + i, repeat: Infinity, ease: "linear" }}
+        >
+          {/* Electron */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-orange-500 rounded-full shadow-[0_0_15px_#f97316]">
+            <div className="absolute inset-0 bg-white/40 rounded-full blur-[1px]" />
+          </div>
+        </motion.div>
+      ))}
+    </div>
+    <div className="flex flex-col items-center gap-3">
+      <div className="text-orange-500 font-black tracking-[0.3em] uppercase text-[10px] animate-pulse bg-orange-500/10 px-6 py-2.5 rounded-full border border-orange-500/20 shadow-2xl">
+        {text}
+      </div>
+      <div className="text-white/10 text-[8px] font-mono tracking-widest uppercase">
+        Analyzing Quantum Bits...
+      </div>
+    </div>
+  </motion.div>
+);
+
 export default function App() {
   const [topicContent, setTopicContent] = useState("");
   const [hasStarted, setHasStarted] = useState(false);
@@ -27,6 +70,7 @@ export default function App() {
   const [isListening, setIsListening] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [lastTranscript, setLastTranscript] = useState("");
@@ -144,7 +188,7 @@ export default function App() {
         }
         
         // Stop if user cancelled via the UI stop button
-        if (!VoiceService.isSpeaking && i > 0) break;
+        if (!VoiceService.getSpeakingStatus() && i > 0) break;
       }
       
       setIsSpeaking(false);
@@ -318,16 +362,16 @@ export default function App() {
       </div>
 
       {/* Navigation */}
-      <nav className="relative z-10 px-10 py-8 flex items-center justify-between max-w-7xl mx-auto">
+      <nav className="relative z-10 px-6 md:px-10 py-4 md:py-8 flex items-center justify-between max-w-7xl mx-auto">
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="flex items-center gap-3 cursor-default"
+          className="flex items-center gap-2 md:gap-3 cursor-default"
         >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center font-black text-black italic text-xl shadow-lg shadow-orange-500/20">M</div>
+          <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center font-black text-black italic text-lg md:xl shadow-lg shadow-orange-500/20">M</div>
           <div className="flex flex-col">
-            <span className="font-bold tracking-tight text-2xl leading-none">Myra</span>
-            <span className="text-[10px] text-orange-500/60 font-mono tracking-widest uppercase">AI Study Buddy</span>
+            <span className="font-bold tracking-tight text-xl md:text-2xl leading-none">Myra</span>
+            <span className="text-[9px] md:text-[10px] text-orange-500/60 font-mono tracking-widest uppercase">AI Study Buddy</span>
           </div>
         </motion.div>
         <motion.div 
@@ -357,6 +401,18 @@ export default function App() {
             >
               <MessageSquare size={18} />
             </button>
+            <button 
+              onClick={() => {
+                setShowInfo(!showInfo);
+                setShowHistory(false);
+                setShowTranscript(false);
+              }}
+              className={`p-2.5 rounded-full transition-all ${showInfo ? 'bg-orange-500 text-black scale-110 shadow-lg shadow-orange-500/40' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
+              id="info-button"
+              title="Developer Info"
+            >
+              <Info size={18} />
+            </button>
             <div className="w-[1px] bg-white/10 mx-1 self-stretch" />
             <button 
               onClick={resetAll}
@@ -370,7 +426,7 @@ export default function App() {
         </motion.div>
       </nav>
 
-      <main className="relative z-10 max-w-4xl mx-auto px-6 h-[calc(100vh-100px)] flex flex-col items-center justify-center">
+      <main className="relative z-10 max-w-4xl mx-auto px-4 md:px-6 min-h-[calc(100vh-80px)] flex flex-col items-center justify-center py-10">
         <AnimatePresence mode="wait">
           {!hasStarted ? (
             <motion.div 
@@ -380,11 +436,11 @@ export default function App() {
               exit={{ opacity: 0, scale: 1.05 }}
               className="w-full"
             >
-              <div className="text-center mb-12">
+              <div className="text-center mb-8 md:mb-12">
                 <motion.h1 
                   initial={{ opacity: 0, y: -20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="text-6xl md:text-8xl font-black tracking-tighter mb-6 leading-[0.9]"
+                  className="text-4xl md:text-8xl font-black tracking-tighter mb-4 md:mb-6 leading-[0.9]"
                 >
                   Unit difficult hai? <br />
                   <span className="text-orange-500 italic">Yaha dalo. 😏</span>
@@ -393,7 +449,7 @@ export default function App() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
-                  className="text-white/40 text-xl max-w-xl mx-auto font-medium"
+                  className="text-white/40 text-lg md:text-xl max-w-xl mx-auto font-medium px-4"
                 >
                   Paste your full unit or chapter. Myra will identify 
                   all topics and explain them with style.
@@ -404,40 +460,48 @@ export default function App() {
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.2 }}
-                className="relative group"
+                className="relative group px-2 md:px-0"
               >
                 <textarea
                   value={topicContent}
                   onChange={(e) => setTopicContent(e.target.value)}
                   placeholder="Paste your unit topics or notes here... Myra will handle everything! 😏"
-                  className="w-full h-80 bg-white/[0.02] border border-white/10 rounded-[48px] p-10 outline-none focus:border-orange-500/50 transition-all text-xl font-medium resize-none relative z-10 shadow-2xl backdrop-blur-3xl placeholder:text-white/10"
+                  className="w-full h-64 md:h-80 bg-white/[0.02] border border-white/10 rounded-[32px] md:rounded-[48px] p-6 md:p-10 pb-20 md:pb-24 outline-none focus:border-orange-500/50 transition-all text-lg md:text-xl font-medium resize-none relative z-10 shadow-2xl backdrop-blur-3xl placeholder:text-white/10"
                   disabled={isProcessing}
                 />
-                <div className="absolute inset-x-0 -bottom-6 flex justify-center z-20">
+                <div className="absolute inset-x-0 -bottom-16 md:-bottom-20 flex justify-center z-30">
                     <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      animate={topicContent.trim() && !isProcessing ? {
+                        y: [0, -4, 0],
+                        transition: { repeat: Infinity, duration: 2 }
+                      } : {}}
                       onClick={handleTopicSubmit}
                       disabled={isProcessing || !topicContent.trim()}
-                      className="bg-orange-500 text-black font-black px-12 py-5 rounded-full flex items-center gap-4 shadow-2xl shadow-orange-500/40 hover:bg-orange-400 transition-colors disabled:opacity-50 disabled:grayscale text-lg uppercase tracking-tight"
+                      className="bg-orange-500 text-black font-black px-8 md:px-10 py-3.5 md:py-4 rounded-full flex items-center gap-3 shadow-2xl shadow-orange-500/40 hover:bg-orange-400 transition-all disabled:opacity-50 disabled:grayscale text-base md:text-lg uppercase tracking-widest relative group overflow-hidden"
                     >
-                      {isProcessing ? 'Analyzing Unit...' : 'Explain Full Unit'}
-                      <Waves size={24} className={isProcessing ? 'animate-spin' : ''} />
+                      {/* Shine effect */}
+                      <motion.div 
+                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"
+                      />
+                      
+                      <span className="relative z-10">{isProcessing ? 'Analyzing...' : 'Send'}</span>
+                      <motion.div
+                        animate={isProcessing ? { rotate: 360 } : { x: [0, 5, 0] }}
+                        transition={isProcessing ? { repeat: Infinity, duration: 1, ease: "linear" } : { repeat: Infinity, duration: 1.5 }}
+                        className="relative z-10"
+                      >
+                        {isProcessing ? <Waves size={22} /> : <Send size={22} fill="currentColor" />}
+                      </motion.div>
                     </motion.button>
                 </div>
               </motion.div>
 
               {isProcessing && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-16 text-center"
-                >
-                  <p className="text-orange-500 font-medium text-xl animate-pulse flex items-center justify-center gap-3">
-                    <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
-                    {processingStatus} {processingTime}s
-                  </p>
-                </motion.div>
+                <div className="mt-20">
+                  <AtomLoader text={`${processingStatus} (${processingTime}s)`} />
+                </div>
               )}
               
               {!isProcessing && (
@@ -477,7 +541,7 @@ export default function App() {
                 <motion.div 
                    whileHover={{ scale: 1.05 }}
                    className={`
-                    w-48 h-48 rounded-full border border-white/10 flex items-center justify-center relative bg-black/40 backdrop-blur-3xl shadow-2xl
+                    w-40 h-40 md:w-48 md:h-48 rounded-full border border-white/10 flex items-center justify-center relative bg-black/40 backdrop-blur-3xl shadow-2xl
                     ${isSpeaking ? 'border-orange-500/50 shadow-orange-500/20' : isListening ? 'border-blue-500/50 shadow-blue-500/20' : ''}
                   `}
                 >
@@ -517,13 +581,13 @@ export default function App() {
                     key="response"
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                    className="max-w-xl w-full bg-orange-500/[0.03] border border-orange-500/20 p-8 rounded-[40px] relative backdrop-blur-xl shadow-2xl"
+                    className="max-w-xl w-full bg-orange-500/[0.03] border border-orange-500/20 p-6 md:p-8 rounded-3xl md:rounded-[40px] relative backdrop-blur-xl shadow-2xl"
                   >
-                    <div className="absolute -top-3 left-10 bg-orange-500 text-black px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter">
+                    <div className="absolute -top-3 left-6 md:left-10 bg-orange-500 text-black px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter">
                       Myra Insight
                     </div>
                     <div className="max-h-56 overflow-y-auto custom-scrollbar pr-4">
-                      <p className="text-orange-100/90 text-xl leading-relaxed font-medium italic">
+                      <p className="text-orange-100/90 text-lg md:text-xl leading-relaxed font-medium italic">
                         "{lastMyraResponse}"
                       </p>
                     </div>
@@ -565,11 +629,15 @@ export default function App() {
                     <motion.div 
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="bg-orange-500/10 border border-orange-500/20 px-4 py-1.5 rounded-full flex items-center gap-3"
+                      className="bg-orange-500/10 border border-orange-500/20 px-4 py-2 rounded-full flex items-center gap-4"
                     >
-                      <span className="w-2 h-2 bg-orange-500 rounded-full animate-ping" />
-                      <span className="text-orange-100 text-[11px] font-bold uppercase tracking-widest">{processingStatus}</span>
-                      <span className="text-orange-500/40 text-[10px] font-mono border-l border-white/10 pl-3">{processingTime}S</span>
+                      <div className="relative w-5 h-5 flex items-center justify-center">
+                        <div className="absolute inset-0 border border-orange-500/30 rounded-full animate-[spin_3s_linear_infinite]" />
+                        <div className="absolute inset-0 border border-orange-500/50 rounded-full animate-[spin_2s_linear_infinite] rotate-45" />
+                        <div className="w-1.5 h-1.5 bg-orange-500 rounded-full shadow-[0_0_8px_#f97316]" />
+                      </div>
+                      <span className="text-orange-100 text-[11px] font-bold uppercase tracking-widest leading-none">{processingStatus}</span>
+                      <span className="text-orange-500/40 text-[10px] font-mono border-l border-white/10 pl-3 leading-none">{processingTime}S</span>
                     </motion.div>
                   ) : (
                     <motion.p 
@@ -663,17 +731,30 @@ export default function App() {
                 </div>
               )}
               {history.map((item) => (
-                <div key={item.id} className="group bg-white/5 border border-white/10 p-5 rounded-2xl hover:border-orange-500/30 transition-all">
+                <div key={item.id} className="group bg-white/5 border border-white/10 p-5 rounded-2xl hover:border-orange-500/30 transition-all relative">
                   <div className="flex justify-between items-start mb-2">
                     <span className="text-[10px] text-white/30 font-mono">
                       {new Date(item.timestamp).toLocaleDateString()}
                     </span>
-                    <button 
-                      onClick={() => playFromHistory(item)}
-                      className="text-orange-500 hover:scale-110 transition-transform"
-                    >
-                      <PlayCircle size={24} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => playFromHistory(item)}
+                        className="text-orange-500 hover:scale-110 transition-transform"
+                        title="Replay Audio"
+                      >
+                        <PlayCircle size={24} />
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setHistory(prev => prev.filter(h => h.id !== item.id));
+                        }}
+                        className="text-white/10 hover:text-red-500 transition-colors p-1"
+                        title="Delete History"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </div>
                   <h3 className="text-sm font-medium text-white/80 line-clamp-2 mb-3">
                     {item.topic}
@@ -725,6 +806,39 @@ export default function App() {
                 </div>
               ))}
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Developer Info Modal */}
+      <AnimatePresence>
+        {showInfo && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm"
+            onClick={() => setShowInfo(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[#0f0f0f] border border-white/10 p-8 rounded-[32px] max-w-sm w-full text-center shadow-2xl relative overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-right from-transparent via-orange-500 to-transparent" />
+              <div className="w-16 h-16 bg-orange-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-orange-500/20">
+                <Info size={28} className="text-orange-500" />
+              </div>
+              <h3 className="text-xl font-bold tracking-tight mb-6">Developed By Krishan Hkr</h3>
+              <button
+                onClick={() => setShowInfo(false)}
+                className="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-orange-500 hover:text-white transition-colors"
+              >
+                Close
+              </button>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

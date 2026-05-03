@@ -5,6 +5,10 @@ export class VoiceService {
   private static isSpeaking = false;
   private static audioContext: AudioContext | null = null;
   private static currentSource: AudioBufferSourceNode | null = null;
+ 
+  static getSpeakingStatus() {
+    return this.isSpeaking;
+  }
 
   static initRecognition(onResult: (text: string) => void, onEnd: () => void) {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
