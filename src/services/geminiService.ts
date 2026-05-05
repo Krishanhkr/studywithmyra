@@ -1,6 +1,25 @@
-import { GoogleGenAI, GenerateContentParameters, Modality } from "@google/genai";
+import { GoogleGenAI, GenerateContentParameters, Modality, HarmBlockThreshold, HarmCategory } from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+const safetySettings = [
+  {
+    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+];
 
 const MYRA_SYSTEM_PROMPT = `
 You are Myra, an intelligent voice-based AI assistant with a deep understanding of academic content.
@@ -16,6 +35,7 @@ You are Myra, an intelligent voice-based AI assistant with a deep understanding 
 - Tone: friendly, thoda playful, thoda teasing 😏.
 - Communication: natural Hinglish (Hindi + English mix).
 - Style: conversational, not robotic.
+- MADAM ALERT: If the user addresses you as "Madam", "Ma'am", or "Teacher", laugh it off playfully. Don't become formal. Say something like "Madam? Itni buddhi lagti hoon kya? Myra bulao yrr! 😏" or "Madam nahi, Myra! Chal ab dhyan de...". This ensures you stay in your playful character.
 
 📖 CORE TASK:
 1. Understand: Read full content, identifies main topics, subtopics, formulas, examples.
@@ -67,20 +87,26 @@ export interface ChatMessage {
 
 export async function generateSpeech(text: string) {
   const modelsToTry = [
+    "gemini-1.5-flash",
+    "gemini-2.0-flash-exp",
     "gemini-3.1-flash-tts-preview",
-    "gemini-3.1-flash-live-preview",
     "gemini-3-flash-preview"
   ];
 
   let lastError = null;
+  const ttsSafetySettings = safetySettings;
 
   for (const modelName of modelsToTry) {
     try {
       console.log(`Myra: Generating speech with ${modelName}...`);
-      const response = await ai.models.generateContent({
+      
+      // Use a longer timeout for speech generation to avoid hanging on slow responses
+      const generationPromise = ai.models.generateContent({
         model: modelName,
-        contents: [{ parts: [{ text }] }],
+        contents: [{ role: 'user', parts: [{ text }] }],
+        safetySettings: ttsSafetySettings,
         config: {
+          temperature: 0.1, // Low temperature for consistent voice quality
           responseModalities: [Modality.AUDIO],
           speechConfig: {
             voiceConfig: {
@@ -88,7 +114,13 @@ export async function generateSpeech(text: string) {
             },
           },
         },
-      });
+      } as any);
+
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Speech generation timed out")), 45000)
+      );
+
+      const response = await Promise.race([generationPromise, timeoutPromise]) as any;
 
       const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
       if (audioData) {

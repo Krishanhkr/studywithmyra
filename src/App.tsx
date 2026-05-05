@@ -154,7 +154,7 @@ export default function App() {
       let currentChunk = "";
       
       for (const segment of chunks) {
-        if ((currentChunk.length + segment.length) < 1500) {
+        if ((currentChunk.length + segment.length) < 500) {
           currentChunk += segment;
         } else {
           mergedChunks.push(currentChunk);
@@ -169,7 +169,14 @@ export default function App() {
       for (let i = 0; i < audioPromises.length; i++) {
         try {
           console.log(`Myra: Playing chunk ${i + 1}/${mergedChunks.length}`);
-          const audioBase64 = await audioPromises[i];
+          let audioBase64;
+          try {
+            audioBase64 = await audioPromises[i];
+          } catch (firstErr) {
+            console.warn(`Chunk ${i} first attempt failed, retrying once...`, firstErr);
+            // Single retry for the chunk
+            audioBase64 = await generateSpeech(mergedChunks[i]);
+          }
           
           if (saveToHistoryId && i === 0) {
              setHistory(prev => prev.map(item => 

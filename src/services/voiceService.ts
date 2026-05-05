@@ -66,7 +66,13 @@ export class VoiceService {
           console.log("Myra: AudioContext resumed.");
         }
 
-        this.cancel();
+        const oldResolve = (VoiceService as any)._currentResolve;
+        VoiceService.cancel();
+        if (oldResolve) {
+          try { oldResolve(); } catch(e) {}
+        }
+
+        (VoiceService as any)._currentResolve = resolve;
 
         // Convert base64 to ArrayBuffer
         const binaryString = atob(base64Data);
@@ -94,9 +100,10 @@ export class VoiceService {
         source.connect(this.audioContext.destination);
         
         source.onended = () => {
-          if (this.currentSource === source) {
+          if (VoiceService.currentSource === source) {
             console.log("Myra: Audio playback finished.");
-            this.isSpeaking = false;
+            VoiceService.isSpeaking = false;
+            (VoiceService as any)._currentResolve = null;
             if (onEnd) onEnd();
             resolve();
           }
@@ -120,11 +127,15 @@ export class VoiceService {
 
     const utterance = new SpeechSynthesisUtterance(text);
     const voices = this.synthesis.getVoices();
+    
+    // Improved voice selection for Hindi/English-India female voices
     const preferredVoice = voices.find(v => 
-      (v.lang === 'hi-IN' || v.lang === 'en-IN') && v.name.toLowerCase().includes('female')
-    ) || voices.find(v => v.lang.includes('hi')) || voices[0];
+      (v.lang.includes('hi-IN') || v.lang.includes('en-IN')) && 
+      (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('lady') || v.name.toLowerCase().includes('google'))
+    ) || voices.find(v => v.lang.includes('hi')) || voices.find(v => v.lang.includes('en')) || voices[0];
     
     if (preferredVoice) {
+      console.log("Myra Fallback Voice:", preferredVoice.name);
       utterance.voice = preferredVoice;
     }
 
